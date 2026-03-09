@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Platform Energy — Venmo Sales Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1a1a2e;--card:#16213e;--card-border:#0f3460;--accent:#e94560;--accent2:#0f3460;--text:#e0e0e0;--text-dim:#8892a4;--green:#00b894;--yellow:#fdcb6e;--blue:#74b9ff;--purple:#a29bfe}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+header{background:linear-gradient(135deg,#0f3460,#1a1a2e);padding:20px 32px;border-bottom:2px solid var(--accent);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+header h1{font-size:1.5rem;font-weight:700;letter-spacing:-.5px}
+header h1 span{color:var(--accent)}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tab{padding:8px 18px;border-radius:6px;cursor:pointer;font-size:.85rem;font-weight:600;background:transparent;color:var(--text-dim);border:1px solid transparent;transition:all .2s}
+.tab:hover{color:var(--text);background:rgba(255,255,255,.05)}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+main{padding:24px;max-width:1400px;margin:0 auto}
+.section{display:none}
+.section.active{display:block}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.kpi{background:var(--card);border:1px solid var(--card-border);border-radius:10px;padding:20px;text-align:center}
+.kpi .value{font-size:2rem;font-weight:700;color:#fff}
+.kpi .label{font-size:.8rem;color:var(--text-dim);margin-top:4px;text-transform:uppercase;letter-spacing:1px}
+.chart-card{background:var(--card);border:1px solid var(--card-border);border-radius:10px;padding:20px;margin-bottom:20px}
+.chart-card h3{font-size:1rem;margin-bottom:12px;color:var(--text-dim)}
+.chart-wrap{position:relative;height:350px}
+.chart-wrap.tall{height:500px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.controls label{font-size:.8rem;color:var(--text-dim);display:flex;align-items:center;gap:4px;cursor:pointer}
+.controls label input{accent-color:var(--accent)}
+.year-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.year-card{background:var(--card);border:1px solid var(--card-border);border-radius:10px;padding:20px}
+.year-card h3{font-size:1.2rem;color:var(--accent);margin-bottom:10px;border-bottom:1px solid var(--card-border);padding-bottom:8px}
+.year-card .stat{display:flex;justify-content:space-between;padding:4px 0;font-size:.85rem}
+.year-card .stat .v{font-weight:600;color:#fff}
+.year-card .top-list{margin-top:10px;border-top:1px solid var(--card-border);padding-top:8px}
+.year-card .top-item{display:flex;justify-content:space-between;font-size:.8rem;padding:3px 0}
+.year-card .top-item .n{color:var(--text-dim)}
+.search-box{width:100%;max-width:400px;padding:10px 16px;border-radius:8px;border:1px solid var(--card-border);background:var(--bg);color:var(--text);font-size:.9rem;margin-bottom:16px}
+.search-box:focus{outline:none;border-color:var(--accent)}
+.txn-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.txn-table th{background:var(--accent2);padding:8px 12px;text-align:left;font-weight:600;position:sticky;top:0}
+.txn-table td{padding:6px 12px;border-bottom:1px solid rgba(255,255,255,.05)}
+.txn-table tr:hover td{background:rgba(255,255,255,.03)}
+.table-wrap{max-height:350px;overflow-y:auto;border-radius:8px;border:1px solid var(--card-border)}
+.drill-charts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:768px){.drill-charts{grid-template-columns:1fr}}
+.customer-name{font-size:1.3rem;font-weight:700;color:#fff;margin-bottom:4px}
+.customer-stats{font-size:.85rem;color:var(--text-dim);margin-bottom:16px}
+footer{text-align:center;padding:20px;font-size:.75rem;color:var(--text-dim);border-top:1px solid var(--card-border);margin-top:40px}
+.neg{color:#e74c3c}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<header>
+<h1><span>Platform Energy</span> — Venmo Sales Dashboard</h1>
+<div class="tabs">
+<div class="tab active" data-tab="overview">Overview</div>
+<div class="tab" data-tab="trends">Monthly Trends</div>
+<div class="tab" data-tab="customers">Top Customers</div>
+<div class="tab" data-tab="drilldown">Customer Drill-Down</div>
+<div class="tab" data-tab="compare">Year Comparison</div>
+</div>
+</header>
+<main>
+<!-- OVERVIEW -->
+<div class="section active" id="sec-overview">
+<div class="kpi-grid">
+<div class="kpi"><div class="value" id="kpi-rev">—</div><div class="label">Total Revenue</div></div>
+<div class="kpi"><div class="value" id="kpi-txn">—</div><div class="label">Transactions</div></div>
+<div class="kpi"><div class="value" id="kpi-cust">—</div><div class="label">Unique Customers</div></div>
+<div class="kpi"><div class="value" id="kpi-avg">—</div><div class="label">Avg Transaction</div></div>
+</div>
+<div class="chart-card"><h3>Revenue by Year</h3><div class="chart-wrap"><canvas id="chartYearly"></canvas></div></div>
+<div class="chart-card"><h3>Monthly Revenue (All Years)</h3><div class="chart-wrap"><canvas id="chartMonthlyAll"></canvas></div></div>
+</div>
+<!-- MONTHLY TRENDS -->
+<div class="section" id="sec-trends">
+<div class="chart-card">
+<h3>Monthly Revenue by Year</h3>
+<div class="controls" id="yearToggles"></div>
+<div class="chart-wrap tall"><canvas id="chartTrends"></canvas></div>
+</div>
+</div>
+<!-- TOP CUSTOMERS -->
+<div class="section" id="sec-customers">
+<div class="chart-card"><h3>Top 25 Customers (All Time) — Click to Drill Down</h3><div class="chart-wrap tall"><canvas id="chartTopCust"></canvas></div></div>
+</div>
+<!-- DRILL DOWN -->
+<div class="section" id="sec-drilldown">
+<input type="text" class="search-box" id="custSearch" placeholder="Search customer name...">
+<div id="custResults" class="hidden"></div>
+<div id="custDetail" class="hidden">
+<div class="customer-name" id="custName"></div>
+<div class="customer-stats" id="custStats"></div>
+<div class="drill-charts">
+<div class="chart-card"><h3>Monthly Spending Over Time</h3><div class="chart-wrap"><canvas id="chartCustLine"></canvas></div></div>
+<div class="chart-card"><h3>Annual Totals</h3><div class="chart-wrap"><canvas id="chartCustBar"></canvas></div></div>
+</div>
+<div class="chart-card"><h3>Transaction History</h3>
+<div class="table-wrap">
+<table class="txn-table"><thead><tr><th>Year</th><th>Month</th><th>Amount</th></tr></thead><tbody id="custTxnBody"></tbody></table>
+</div>
+</div>
+</div>
+</div>
+<!-- YEAR COMPARISON -->
+<div class="section" id="sec-compare">
+<div class="year-cards" id="yearCards"></div>
+</div>
+</main>
+<footer>Data source: Venmo + Shopify Google Sheet &bull; Platform Energy &copy; 2025</footer>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DATA — [year, monthNum, customer, amount]
+// ═══════════════════════════════════════════════════════════════
+const RAW = [
+// 2021
+[2021,1,"Mandee Lawlis",28],[2021,1,"Stephanie Crane Rowe",75],[2021,1,"Kim Raemdonck",36],[2021,1,"Myndee Bartee",40],[2021,1,"Molly Daniels",18],[2021,1,"William Summers",39],[2021,1,"Claire Kieschnick",41],[2021,1,"Jessie Dandrea",26],[2021,1,"Kallie Nichols",20],[2021,1,"Analisa Warren",33],[2021,1,"Kristina Cobb",-13],[2021,1,"Jaclyn Teinert",22],[2021,1,"Lauren Cisneros",40],[2021,1,"McCall Chenot",23],[2021,1,"Gabby Marchbanks",11],[2021,1,"Lyndsey Magee",25],[2021,1,"Kendal Weatherbee",19],[2021,1,"Lauren Burrell",85],
+[2021,2,"Marie Phillips",25],[2021,2,"Alli Pace",50],[2021,2,"Kaitlin Case",40],[2021,2,"Jessie Dandrea",66],[2021,2,"Sarah Bevers",50],[2021,2,"Julia Sotelo",32],
+[2021,3,"Kim Raemdonck",64],[2021,3,"Whitney Creel",86],[2021,3,"Betsy Presley",96],[2021,3,"Kelly Stock",34],[2021,3,"Myndee Bartee",16],[2021,3,"Courtney Crane",78],[2021,3,"Taylor Morin",20],[2021,3,"Danielle Record",20],[2021,3,"Breonne Luna",40],[2021,3,"Candice Barboza",40],[2021,3,"Milagros Gaytan",20],[2021,3,"Ashley Zubia",40],[2021,3,"Charles Childre",20],[2021,3,"Alissa Tijerina",20],[2021,3,"Kristin Shipp",60],[2021,3,"Erin Crenshaw",20],[2021,3,"Nikole Vaughn",25],[2021,3,"Misty Nance",20],[2021,3,"Cristi Acrey",20],[2021,3,"Tayler Griffin",20],[2021,3,"Elizabeth Belmares",20],[2021,3,"Dianne Burnett",20],[2021,3,"Ashley Smith",20],[2021,3,"Amber Davis",20],[2021,3,"Susan Sparks",40],[2021,3,"Charles Childre",10],[2021,3,"Lisa Hernandez",20],[2021,3,"Amberlee Altman",44],[2021,3,"McCall Chenot",10],[2021,3,"Christina Scoggins",160],[2021,3,"Amanda Dunn",40],[2021,3,"Tiffany Tienda",20],[2021,3,"Amber Jackson",20],[2021,3,"Allison Linker",20],[2021,3,"Whitney Vick",20],[2021,3,"Debra Alanis",40],[2021,3,"Nikki Kreger",20],[2021,3,"Christy Nelson",40],[2021,3,"Brittany Bowley",40],[2021,3,"Jessica Pena",20],[2021,3,"Jonyce Putman",40],[2021,3,"Kerri Dee",22],[2021,3,"Amanda Bailey",20],[2021,3,"Leslie Elms",24],[2021,3,"Ria Gauna",40],[2021,3,"Jill Rose",20],[2021,3,"Jill Rose",20],[2021,3,"Matthew Ramos",40],[2021,3,"Rebecca Dameron",28],[2021,3,"Brian Hunnicutt",23],[2021,3,"Leslie Elms",5],[2021,3,"Emily Zwiacher",20],[2021,3,"Tayler Griffin",20],[2021,3,"Hannah Finley",40],[2021,3,"Hannah Finley",40],[2021,3,"Jordan Marshall",25],[2021,3,"Sudie Jennings",20],[2021,3,"Katy Poff",20],[2021,3,"Logan McDonald",20],[2021,3,"Chris N Jamie Flores",105],[2021,3,"Lindsey Joy",40],[2021,3,"Morgan Gates",20],[2021,3,"Angela Barbee",40],[2021,3,"Katherine Wells",40],[2021,3,"Eliot Dennard",40],[2021,3,"Erica Diamond",20],[2021,3,"Ria Gauna",40],[2021,3,"Kellye Wilhite",25],[2021,3,"Rachel T Kelly",89],[2021,3,"Milagros Gaytan",61],[2021,3,"Kim Raemdonck",42],[2021,3,"Whitney Vick",4],[2021,3,"Debbie Couch",11],[2021,3,"Kim Raemdonck",25],[2021,3,"Katy Dunlap",25],[2021,3,"Morgan Behrens",25],[2021,3,"Caroline Fair",25],[2021,3,"EricKatie Burchett",33],[2021,3,"Morgan Springer",36],[2021,3,"Jennifer Steed",90],[2021,3,"Allison Brown",25],[2021,3,"Sandy Thomas",12],[2021,3,"Ashley Zubia",30],[2021,3,"Molly Daniels",70],[2021,3,"Anna Ehlert",25],[2021,3,"Emily Zwiacher",10],[2021,3,"Myndee Bartee",46],[2021,3,"Susan Sparks",9],
+[2021,4,"Tayler Griffin",22],[2021,4,"Brian Hunnicutt",25],[2021,4,"McCall Chenot",100],[2021,4,"Stephanie Crane Rowe",28],[2021,4,"Keila Dunn",28],[2021,4,"Gabby Marchbanks",19],[2021,4,"Anna Ehlert",53],[2021,4,"Ashley Pach",22],[2021,4,"Christy Kemnitz",70],[2021,4,"Erin Crenshaw",22],[2021,4,"Molly Daniels",25],[2021,4,"Anna Ehlert",25],[2021,4,"Kim Raemdonck",81],[2021,4,"Christina Scoggins",89],[2021,4,"Katy Dunlap",25],[2021,4,"Lindsay Rumold",44],[2021,4,"Alli Pace",22],[2021,4,"Kim Raemdonck",25],[2021,4,"Rebecca Dameron",25],[2021,4,"Caroline Fair",25],[2021,4,"Charlene Kroeker Callaway",100],[2021,4,"Amberly Hix",27],[2021,4,"Morgan Behrens",51],[2021,4,"Mackenzie Payton",10],[2021,4,"Keila Dunn",49],[2021,4,"Rachel T Kelly",46],[2021,4,"EricKatie Burchett",23],
+[2021,5,"absouthernworks PLLC",77],[2021,5,"Christina Mueller",80],[2021,5,"Alli Pace",45],[2021,5,"McCall Chenot",42],[2021,5,"Analisa Warren",52],[2021,5,"Brittany Ogden",80],[2021,5,"Gabby Marchbanks",54],[2021,5,"Sandy Thomas",27],[2021,5,"Miquela Smith",195],[2021,5,"McCall Chenot",69],[2021,5,"Alissa Tilford",84],[2021,5,"Scott McCauley",49],[2021,5,"Christy Kemnitz",30],[2021,5,"Sarah Bevers",150],[2021,5,"Brittany Ogden",80],[2021,5,"Rebecca Dameron",25],[2021,5,"Morgan Behrens",25],[2021,5,"Katy Dunlap",25],[2021,5,"Anna Ehlert",25],[2021,5,"Jaclyn Teinert",25],[2021,5,"Caroline Fair",25],[2021,5,"Brian Hunnicutt",25],[2021,5,"Myndee Bartee",40],[2021,5,"Jessie Dandrea",99],[2021,5,"Tayler Griffin",24],[2021,5,"Charlotte Miller",64],[2021,5,"Kori Hortman",27],[2021,5,"Ivy Zepeda",23],[2021,5,"Courtney Crane",27],[2021,5,"Molly Daniels",21],[2021,5,"Maria Cotten",35],[2021,5,"Sarah Bevers",23],[2021,5,"Cassidy Shaw",22],[2021,5,"Emily Zwiacher",18],[2021,5,"Elyse Dubin",40],[2021,5,"Jessie Dandrea",30],[2021,5,"McCall Chenot",68],[2021,5,"Mo Gonzalez",45],[2021,5,"Rachel Gilbert",48],[2021,5,"Caroline Smalley",96],[2021,5,"Cassidy Shaw",20],[2021,5,"Tayler Griffin",22],[2021,5,"Myndee Bartee",69],[2021,5,"Natalia Brownfield",54],
+[2021,6,"Morgan Springer",49],[2021,6,"Sydney Loyed",48],[2021,6,"Christina Mueller",27],[2021,6,"Katie Coyne",27],[2021,6,"Brian Hunnicutt",48],[2021,6,"Matt Morgan",53],[2021,6,"Mackenzie Payton",30],[2021,6,"Christina Stirneman",26],[2021,6,"Ivy Zepeda",23],[2021,6,"Gaye Fedesna",77],[2021,6,"Samantha Weatherford",80],[2021,6,"Tammie King",23],[2021,6,"Brittany Todd",40],[2021,6,"Myndee Bartee",20],[2021,6,"Charles Childre",16],[2021,6,"Jaclyn Teinert",10],[2021,6,"Bailey Dziuk",47],[2021,6,"Gabby Marchbanks",33],[2021,6,"Anna Ehlert",20],[2021,6,"Paige Morgan",49],[2021,6,"Kim Raemdonck",12],[2021,6,"Keila Dunn",72],[2021,6,"Tayler Griffin",23],[2021,6,"Jennifer Steed",26],[2021,6,"Mo Gonzalez",49],[2021,6,"Morgan Springer",136],[2021,6,"McCall Chenot",63],[2021,6,"Ashlyn gibbens",30],[2021,6,"Charlene Kroeker Callaway",27],[2021,6,"Melissa Jenkins",28],[2021,6,"Presley Lumpkins",95],[2021,6,"Allison Brown",60],[2021,6,"Emily Zwiacher",15],[2021,6,"Roxanne Loyed",58],[2021,6,"Debbie Couch",66],[2021,6,"Myndee Bartee",30],
+[2021,7,"Tammie King",120],[2021,7,"Kassi Longoria",50],[2021,7,"Sarah Bevers",79],[2021,7,"Brian Hunnicutt",87],[2021,7,"Brianne Bernstein",100],[2021,7,"Myndee Bartee",36],[2021,7,"Analisa Warren",30],[2021,7,"Alli Pace",36],[2021,7,"Morgan Behrens",98],[2021,7,"Destanie Greeson",10],[2021,7,"McCall Chenot",44],[2021,7,"Lauren Uryasz",22],[2021,7,"Myndee Bartee",38],[2021,7,"Lauren Cisneros",22],[2021,7,"Alissa Tilford",15],[2021,7,"Christina Mueller",26],[2021,7,"Morgan Behrens",108],[2021,7,"Rachel Gilbert",22],[2021,7,"Melissa Jenkins",31],
+[2021,8,"EricKatie Burchett",26],[2021,8,"Bailey Dziuk",26],[2021,8,"Morgan Springer",58],[2021,8,"Lauren Uryasz",27],[2021,8,"Morgan Behrens",31],[2021,8,"Brianne Bernstein",33.44],[2021,8,"John Weatherbee",27],[2021,8,"Jessie Dandrea",25],[2021,8,"Molly Daniels",40],[2021,8,"Lauren Burrell",25],[2021,8,"Martha Aranda",38],[2021,8,"Betsy Presley",73],[2021,8,"Laura Seybert",27],[2021,8,"Brianne Bernstein",44.47],[2021,8,"Charlene Kroeker Callaway",123],[2021,8,"Ivy Zepeda",47],[2021,8,"Brenna Bibb",11],[2021,8,"Kelsey Otts",11],[2021,8,"Charles Childre",8],[2021,8,"Kim Raemdonck",31],[2021,8,"Roxana Lopez",28],[2021,8,"Maggie McCauley",39],[2021,8,"Allison Brown",51],[2021,8,"McCall Chenot",45],[2021,8,"Gabby Marchbanks",95],[2021,8,"Carrie Semple",105],[2021,8,"Kendal Weatherbee",50],[2021,8,"Sydney Loyed",57],[2021,8,"Kristin hallford",42],[2021,8,"Bonnie Casseb",125],[2021,8,"Gabby Marchbanks",55],[2021,8,"Kim Raemdonck",60],[2021,8,"Alli Pace",50],[2021,8,"Jordanna Stephens",28],[2021,8,"Bethany Williams",56],[2021,8,"Taylor Lacy",11],[2021,8,"Victoria Whitehead",42],[2021,8,"Ashlyn Gibbens",25],[2021,8,"Julie Hilliard",11],[2021,8,"Julie Hilliard",33],
+[2021,9,"Cynthia Server",35],[2021,9,"Kinsey Phelps",45],[2021,9,"Jenea Stone",35],[2021,9,"Alyssa Conklin",25],[2021,9,"Christina Mueller",70],[2021,9,"Sandy Thomas",31],[2021,9,"Charlotte Miller",35],[2021,9,"Kristin hallford",42],[2021,9,"Kassi Longoria",78],[2021,9,"Frances Black",50],[2021,9,"Kerri Dee",23],[2021,9,"Megan Garcia",180],[2021,9,"Jaclyn Teinert",31],[2021,9,"Laney Furgeson",30],[2021,9,"Courtney Crane",39],[2021,9,"Brian Hunnicutt",30],[2021,9,"Kim Raemdonck",21],[2021,9,"Stephanie Guillen",36],[2021,9,"Laura Seybert",60],[2021,9,"Maria Cotten",24],[2021,9,"Kristina Cobb",-4],[2021,9,"Alli Pace",12],[2021,9,"Mackenzie Payton",46],[2021,9,"Lauren Cisneros",36],
+[2021,10,"McCall Chenot",60],[2021,10,"Marie Phillips",23],[2021,10,"Myndee Bartee",46],[2021,10,"Rachel Gilbert",50],[2021,10,"Morgan Springer",22],[2021,10,"Caroline Smalley",27],[2021,10,"Molly Daniels",84],[2021,10,"Analisa Warren",25],[2021,10,"Gabby Marchbanks",27],[2021,10,"Bailey Dziuk",30],[2021,10,"EricKatie Burchett",37],[2021,10,"Jaclyn Teinert",30],[2021,10,"Kim Raemdonck",50],[2021,10,"Anna Ehlert",28],[2021,10,"Emily Zwiacher",30],[2021,10,"Myndee Bartee",60],[2021,10,"Dwight Dunn",48],[2021,10,"Tayler Griffin",9],[2021,10,"Christy Kemnitz",66],[2021,10,"Marie Phillips",38],[2021,10,"Kristin Edwards",68],[2021,10,"Laura Seybert",105],[2021,10,"Jordanna Stephens",30],[2021,10,"Ivy Zepeda",90],[2021,10,"Christina Mueller",312],[2021,10,"Kimberly Pfeifer",39],[2021,10,"Allyson Taylor",97],[2021,10,"Analisa Warren",140],[2021,10,"Amy Magallanes",35],[2021,10,"Jenny Steindam",19],[2021,10,"Arden Wimberly",39],[2021,10,"Kallie Nichols",35],[2021,10,"Lauren Rich",74],[2021,10,"Alli Pace",70],[2021,10,"McCall Chenot",25],[2021,10,"Jessie Dandrea",48],[2021,10,"Sarah Bevers",202],[2021,10,"kate Upchurch",68],[2021,10,"Hannah Bostick",90],[2021,10,"Kelsey Otts",35],[2021,10,"Megan Garcia",63],[2021,10,"Ivy Zepeda",15],[2021,10,"Brooke Zavala",30],[2021,10,"Jackie Odom",60],[2021,10,"Alyssa Zuniga Pytel",63],[2021,10,"Maria Cotten",40],[2021,10,"Kendal Weatherbee",35],[2021,10,"Natalie Carmona",20],[2021,10,"Analisa Warren",45],[2021,10,"Tayler Griffin",20],[2021,10,"Gaye Fedesna",46],[2021,10,"Kristin hallford",56],[2021,10,"Analisa Warren",40],
+[2021,11,"Charlene Kroeker Callaway",73],[2021,11,"Natalie Carmona",38],[2021,11,"Lauren Cisneros",136],[2021,11,"McCall Chenot",86],[2021,11,"Kelsey Otts",25],[2021,11,"Elizabeth Goetz",66],[2021,11,"Brooke Zavala",12],[2021,11,"Delaney Piercy",125],[2021,11,"Debbie Couch",224],[2021,11,"Kati Dillard",14],[2021,11,"Natalie Carmona",50],[2021,11,"Erin Hornaday",46],[2021,11,"Roxana Lopez",28],[2021,11,"Morgan Behrens",43],[2021,11,"Bianca Buckingham",134],[2021,11,"Stephanie House",177.47],[2021,11,"Winnie Simmons",174],[2021,11,"Ivy Zepeda",50],[2021,11,"Heather McDonald",18],[2021,11,"Katy Dunlap",83],[2021,11,"Emily Zwiacher",126],[2021,11,"Jana Hoffman",240],[2021,11,"Kelsey Otts",25],[2021,11,"Debbie Couch",60],[2021,11,"Kristina Cobb",-10],[2021,11,"Molly Daniels",28],[2021,11,"Amy Magallanes",25],[2021,11,"Jennifer Steed",130],[2021,11,"Jessie Dandrea",107],[2021,11,"Brittany Todd",165],[2021,11,"Gabby Marchbanks",192],[2021,11,"Whitney Madison",53],[2021,11,"absouthernworks PLLC",50],[2021,11,"Brittany Ogden",125],[2021,11,"Christina Scoggins",13],[2021,11,"Jaclyn Teinert",66],[2021,11,"EricKatie Burchett",160],[2021,11,"McCall Chenot",239],[2021,11,"Terri Irlbeck",40],[2021,11,"Lauren Cisneros",81],[2021,11,"Natalie Carmona",39.14],[2021,11,"Gaye Fedesna",16],
+[2021,12,"Paige Morgan",101],[2021,12,"Chris Crane",24],[2021,12,"Terri Irlbeck",52],[2021,12,"Gabby Marchbanks",222],[2021,12,"Terri Irlbeck",10],[2021,12,"Kallie Nichols",20],[2021,12,"Brian Hunnicutt",46],[2021,12,"Jordanna Stephens",30],[2021,12,"Destanie Greeson",48],[2021,12,"Terri Irlbeck",10],[2021,12,"Courtney Crane",39],[2021,12,"Natalie Inderman",200],[2021,12,"Sandy Thomas",22],[2021,12,"Lauren Cisneros",29],[2021,12,"Delaney Piercy",19],[2021,12,"Miquela Smith",70],[2021,12,"Kinsey Phelps",85],[2021,12,"Andi Pickering",10],[2021,12,"Alli Pace",22],[2021,12,"Terri Irlbeck",150],[2021,12,"Emily Bateman",210],[2021,12,"Brooke Zavala",65],[2021,12,"Brooke Zavala",24],[2021,12,"Victoria Smaldone",28],[2021,12,"Ryan Fuhrmann",75],[2021,12,"Delaney Piercy",12],[2021,12,"Stephanie Guillen",22],[2021,12,"Lexi Cavaliere",90],[2021,12,"Terri Irlbeck",43],[2021,12,"Julie Brown",132],[2021,12,"Kim Shewmake",20],[2021,12,"Tammie King",10],[2021,12,"Brittany Jones",186],[2021,12,"Kristina Cobb",-28],[2021,12,"Katie Davis",30],[2021,12,"Ivy Zepeda",60],[2021,12,"John Ross Norton",90],
+// 2023
+[2023,1,"Megan Garcia",126],[2023,1,"Terri Irlbeck",266],[2023,1,"Ali Hamilton",27.71],[2023,1,"Lauren Cisneros",42.49],[2023,1,"Jenny Steindam",46.19],[2023,1,"Delaney Piercy",83.14],[2023,1,"Terri Irlbeck",203],[2023,1,"McCall Lewis",144.11],[2023,1,"Molly Daniels",45.27],[2023,1,"Hayley Christian",36.03],
+[2023,2,"Laura Seybert",134.87],[2023,2,"Terri Irlbeck",47],[2023,2,"Billy Breedlove",121.2],[2023,2,"Lauren Cisneros",97],[2023,2,"Terri Irlbeck",101],[2023,2,"Terri Irlbeck",11],[2023,2,"Frances Black",70.21],[2023,2,"Terri Irlbeck",62],[2023,2,"Kobye Hannis",27.07],[2023,2,"Analisa Warren",30.48],[2023,2,"Cassie Kulbeth",26.33],[2023,2,"Kinsey Phelps",26.33],[2023,2,"Terri Irlbeck",30],[2023,2,"Taylor Mcculloch",357],[2023,2,"Taylor Mcculloch",23],[2023,2,"Sandy Thomas",12.01],[2023,2,"Magan Brown",56],[2023,2,"Delaney Piercy",87.94],[2023,2,"Analisa Warren",30.48],
+[2023,3,"Terri Irlbeck",144],[2023,3,"Terri Irlbeck",35],[2023,3,"Terri Irlbeck",12],[2023,3,"Haley Hughston",76.67],[2023,3,"Brittany Todd",26.33],[2023,3,"Laura Seybert",48.04],[2023,3,"Laura Seybert",24.02],[2023,3,"Laura Seybert",24.02],[2023,3,"Ana Likman",62.36],[2023,3,"Caroline Smalley",48.59],[2023,3,"Delaney Piercy",240],[2023,3,"Terri Irlbeck",130],[2023,3,"Debbie Couch",65.13],[2023,3,"Shelley Shuman",69.28],[2023,3,"Victoria Thurmond",36.95],[2023,3,"Myndee Bartee",48.04],[2023,3,"Caroline Smalley",53.58],[2023,3,"Laura Seybert",24.02],[2023,3,"Jane McIntyre",25.4],[2023,3,"Cassie Kulbeth",11.09],[2023,3,"Cassie Kulbeth",36.95],[2023,3,"Terri Irlbeck",117],[2023,3,"Morgan Springer",22.17],[2023,3,"Kinsey Phelps",36.03],
+[2023,4,"siairra gaydon",22.63],[2023,4,"Marlo Jones",18.48],[2023,4,"Debbie Couch",83.14],[2023,4,"Betsy Presley",33.26],[2023,4,"Mackenzie Payton",24.02],[2023,4,"Rachel Hilliard",10.16],[2023,4,"Eliot Dennard",81.29],[2023,4,"Megan Garcia",40.65],[2023,4,"Kelsey Miller",168.13],[2023,4,"Shadi Nejat",266.05],[2023,4,"Terri Irlbeck",53],[2023,4,"KC Woolsey",40.65],[2023,4,"Brittany Ogden",83.14],[2023,4,"Marlo Jones",41.57],[2023,4,"Stacy McGinnis",38.8],[2023,4,"Kyra Washington",67.44],[2023,4,"Jordanna Stephens",40.65],[2023,4,"Jenny Steindam",46.19],[2023,4,"Mary Claire Hohenberger",32.62],[2023,4,"Analisa Warren",36.95],[2023,4,"Terri Irlbeck",33],[2023,4,"Delaney Piercy",176.44],[2023,4,"Billy Breedlove",28.08],[2023,4,"Sarah Bevers",83.14],[2023,4,"Robin Perrin",24.94],[2023,4,"Hayley Christian",36.03],[2023,4,"Myndee Bartee",137.64],[2023,4,"Marlo Jones",12.01],[2023,4,"Maura Smith",41.57],[2023,4,"Terri Irlbeck",113],
+[2023,5,"Jenifer Sumrall",41.9],[2023,5,"Magan Brown",41.57],[2023,5,"Brittany Ogden",109.93],[2023,5,"Lexi Bolen",150.58],[2023,5,"Terri Irlbeck",31],[2023,5,"Sheridan Richburg",36.03],[2023,5,"Ana Likman",83],[2023,5,"Sheridan Richburg",11.09],[2023,5,"Hayley Christian",12.01],[2023,5,"Laura Seybert",23.09],[2023,5,"Ivy Zepeda",41.57],[2023,5,"Elizabeth Perez",134.41],[2023,5,"Terri Irlbeck",65],[2023,5,"Terri Irlbeck",139],[2023,5,"Analisa Warren",37.88],[2023,5,"Analisa Warren",101.62],[2023,5,"Lucy Nichols",83.98],[2023,5,"Sarah Bevers",36.03],[2023,5,"Melissa Funk",28.64],[2023,5,"Debbie Couch",11.55],[2023,5,"Alli Pace",83.14],[2023,5,"Terri Irlbeck",143],[2023,5,"Molly Daniels",34.18],[2023,5,"Kendal Weatherbee",341.8],[2023,5,"Magan Brown",39.72],[2023,5,"Andi Pickering",83.14],[2023,5,"Terri Irlbeck",310],[2023,5,"Kim Raemdonck",142],[2023,5,"Bea Raemdonck",102],[2023,5,"Terri Irlbeck",30],[2023,5,"Sandy Thomas",41.57],[2023,5,"Kassidy Johnston",27.99],[2023,5,"Valerye Sweatt",37.88],[2023,5,"Erin Hornaday",38],[2023,5,"Debbie Couch",36.95],[2023,5,"Brian Hunnicutt",46.19],[2023,5,"Kim Raemdonck",447],
+[2023,6,"Reagan Alexander",49.88],[2023,6,"Terri Irlbeck",115],[2023,6,"Sarah Bevers",61.89],[2023,6,"Brittany Todd",106.24],[2023,6,"Alli Pace",38],[2023,6,"Julia Sotelo",41.57],[2023,6,"Lauren Cisneros",86.84],[2023,6,"Kendal Weatherbee",38],[2023,6,"Erin Modde",23.09],[2023,6,"Hayley Christian",90.53],[2023,6,"Brooke Zavala",12.93],[2023,6,"Molly McCarty",349.39],[2023,6,"Terri Irlbeck",38],[2023,6,"Erin Hornaday",24.94],[2023,6,"Brittany Jones",85.91],[2023,6,"Terri Irlbeck",46],[2023,6,"Kim Raemdonck",293],[2023,6,"Delaney Piercy",36.03],[2023,6,"Megan Garcia",55.43],[2023,6,"Jordanna Stephens",57.27],
+[2023,7,"John Ross Norton",31.41],[2023,7,"Reagan Tyler",13.86],[2023,7,"Anna Ehlert",25],[2023,7,"Terri Irlbeck",53],[2023,7,"Jana Hoffman",24.02],[2023,7,"Brittany Furgeson",13.86],[2023,7,"Myndee Bartee",116.4],[2023,7,"Billy Breedlove",66.51],[2023,7,"Stacy McGinnis",35.1],[2023,7,"Terri Irlbeck",72],[2023,7,"Stormie Taggart",24.02],[2023,7,"Natalie Butler",48.04],[2023,7,"Terri Irlbeck",42],[2023,7,"Emily Zwiacher",84],[2023,7,"Myndee Bartee",27.71],[2023,7,"Kelsey Otts",50.81],[2023,7,"Ana Likman",24.94],[2023,7,"Terri Irlbeck",13],
+[2023,8,"Andi Pickering",18.48],[2023,8,"Delaney Piercy",22.17],[2023,8,"Kyra Washington",50.81],[2023,8,"Terri Irlbeck",39],[2023,8,"Analisa Warren",3.7],[2023,8,"Jaclyn Hughey",99],[2023,8,"Ashley Pach",26.79],[2023,8,"Caleigh Waters",13.86],[2023,8,"Stacy McGinnis",39.72],[2023,8,"Debbie Couch",92.38],[2023,8,"Charlene Kroeker Callaway",89.63],[2023,8,"Laurie Ross",280.83],[2023,8,"Val Kuitu",11.55],[2023,8,"Miquela Smith",20.32],[2023,8,"Debbie Couch",189.38],[2023,8,"Brent Shankle",39.72],[2023,8,"Terri Irlbeck",37],[2023,8,"Cindy Furgeson",72.06],[2023,8,"Karen Neinast",80.37],[2023,8,"Laney Furgeson",11.55],[2023,8,"Valerye Sweatt",30.48],[2023,8,"Laura Henderson",36.03],[2023,8,"Stacey Cox",35.1],[2023,8,"Teri Jo Gilmore",36.03],[2023,8,"Myndee Bartee",88.22],[2023,8,"Breanne Kittley",64.67],[2023,8,"Terri Irlbeck",49],[2023,8,"Delaney Piercy",177.83],[2023,8,"Scott McCauley",105.03],[2023,8,"Julie Hilliard",25.87],[2023,8,"Stephanie Guillen",60.05],[2023,8,"Kristina Cobb",4.9],[2023,8,"Victoria Whitehead",35.1],[2023,8,"Sheridan Richburg",101.62],[2023,8,"Kelsey Otts",12.93],
+[2023,9,"Terri Irlbeck",61],[2023,9,"Jane McIntyre",55.43],[2023,9,"Melissa Funk",20.32],[2023,9,"Jessica Hatton",190.3],[2023,9,"Cassie Kulbeth",46.19],[2023,9,"Rebecca Dameron",26.79],[2023,9,"Terri Irlbeck",12],[2023,9,"Morgan Behrens",166.28],[2023,9,"Kendra Cook",65.03],[2023,9,"Laura Seybert",60.05],[2023,9,"Hayley Christian",111.78],[2023,9,"Kayleigh Helton",35.1],[2023,9,"Megan Garcia",41.57],[2023,9,"Cindy Furgeson",12.01],[2023,9,"Terri Irlbeck",12],[2023,9,"Terri Irlbeck",39],[2023,9,"Sarah Bevers",36.03],[2023,9,"Mackenzie Payton",75.75],[2023,9,"Kendal Weatherbee",26.79],[2023,9,"Kim Raemdonck",115],[2023,9,"Terri Irlbeck",72],[2023,9,"Debbie McGuire",166.28],[2023,9,"Sarah Simmons",35.1],
+[2023,10,"Terri Irlbeck",13],[2023,10,"McCall Lewis",69.28],[2023,10,"Jessica Hatton",52.66],[2023,10,"Sheridan Richburg",69.28],[2023,10,"Terri Irlbeck",23],[2023,10,"Jessica Hatton",81.29],[2023,10,"Laura Seybert",60.97],[2023,10,"Brenna Bibb",43.88],[2023,10,"Terri Irlbeck",106],[2023,10,"Sarah Bevers",161.66],[2023,10,"Analisa Warren",63.74],[2023,10,"Taylor Mcculloch",12],[2023,10,"Taylor Mcculloch",46.19],[2023,10,"Katie Davis",83.14],[2023,10,"Laura Curran",745.4],[2023,10,"Terri Irlbeck",57],[2023,10,"Kimberli Swett",14.78],[2023,10,"Breanne Kittley",46.19],[2023,10,"Delaney Piercy",45.27],[2023,10,"Cassie Kulbeth",45.27],[2023,10,"Sarah Simmons",45.27],[2023,10,"Terri Irlbeck",36],[2023,10,"Heather Osborne",40.65],[2023,10,"Myndee Bartee",39.72],[2023,10,"Brittany Furgeson",45.27],
+[2023,11,"Melissa Giussani",95.15],[2023,11,"Jessica Hatton",175.52],[2023,11,"Holli Quinn",24.94],[2023,11,"Kendal Weatherbee",147.81],[2023,11,"Terri Irlbeck",47],[2023,11,"Victoria Whitehead",63.19],[2023,11,"Nadine Meyer",87.76],[2023,11,"Lacey Hannis",49.88],[2023,11,"Laura Seybert",203.23],[2023,11,"Terri Irlbeck",118],[2023,11,"Breanne Kittley",23.09],[2023,11,"Katie Davis",35.1],[2023,11,"Terri Irlbeck",131],[2023,11,"Lillie Speck",37.41],[2023,11,"Kassidy Johnston",49.88],[2023,11,"Terri Irlbeck",86],[2023,11,"Lauren Uryasz",101.62],[2023,11,"Hannah Cowden",57.27],[2023,11,"Terri Irlbeck",30],[2023,11,"Brittany Furgeson",224.48],[2023,11,"Terri Irlbeck",90],[2023,11,"Emily Manning",12.93],
+[2023,12,"Laura Seybert",76.01],[2023,12,"Ali Hamilton",69.28],[2023,12,"Natalie Butler",48.04],[2023,12,"Myndee Bartee",12.47],[2023,12,"Terri Irlbeck",130],[2023,12,"Toby-Amy Catlin",110.85],[2023,12,"Jana Scheef",35.1],[2023,12,"Terri Irlbeck",90],[2023,12,"Debbie McGuire",524.25],[2023,12,"Brittany Furgeson",31.87],[2023,12,"Alli Pace",23.09],[2023,12,"Alli Pace",53.58],[2023,12,"Terri Irlbeck",247],[2023,12,"Sarah Bevers",108.08],[2023,12,"Kim Raemdonck",46.19],[2023,12,"Mackenzie Payton",40.65],[2023,12,"Traci Robinett",41.57],[2023,12,"Emily Ratcliff",41.57],[2023,12,"Brittany Ogden",13.86],[2023,12,"Holli Quinn",64.67],[2023,12,"Debbie McGuire",16.63],[2023,12,"Victoria Smaldone",101.15],[2023,12,"Terri Irlbeck",263],[2023,12,"Linda Gaither",83.14],
+// 2024
+[2024,1,"Katie Graves",677.6],[2024,1,"Jenifer Sumrall",35.1],[2024,1,"Terri Irlbeck",135],[2024,1,"Magan Brown",102.54],[2024,1,"Stephanie Guillen",56.35],[2024,1,"Sarah Bevers",138.57],[2024,1,"Terri Irlbeck",10],[2024,1,"Victoria Smaldone",41.57],[2024,1,"Terri Irlbeck",52.66],[2024,1,"Charlene Kroeker Callaway",138.57],[2024,1,"Jana Hoffman",72.06],[2024,1,"Brittany Furgeson",39.72],[2024,1,"Terri Irlbeck",128],[2024,1,"Haley Shivers",30.48],[2024,1,"Alex Miller",30.48],[2024,1,"Leisha Gonzalez",30.48],[2024,1,"Courtney Holleman",30.48],[2024,1,"Kayla Voss",30.48],[2024,1,"Stacy McGinnis",209.7],[2024,1,"Jessica Hatton",55.43],[2024,1,"Brittany Ogden",30.48],[2024,1,"Alexis Truesdell",60.97],[2024,1,"Brittany Ogden",30.48],[2024,1,"Terri Irlbeck",103],
+[2024,2,"Kim Raemdonck",170.9],[2024,2,"Katie Graves",46.19],[2024,2,"Melynn Henry",67.9],[2024,2,"Taylor Hudman",124.71],[2024,2,"Sheridan Richburg",97],[2024,2,"Terri Irlbeck",34],[2024,2,"Billy Breedlove",12.01],[2024,2,"Milena Smith",38.8],[2024,2,"Kayla Voss",324.25],[2024,2,"Debbie Couch",30.48],[2024,2,"Shawn and Nicole Phillips",41.57],[2024,2,"Laura Henderson",32.33],[2024,2,"Chelsi Henderson",41.57],[2024,2,"Terri Irlbeck",26],[2024,2,"Julia Sotelo",50.81],[2024,2,"Kellie Kelly",292.84],[2024,2,"Kellie Kelly",36.03],[2024,2,"Natalie Carmona",40.65],[2024,2,"Terri Irlbeck",46],[2024,2,"Natalie Butler",38.8],[2024,2,"Mitzi Miller",360.28],[2024,2,"Kellie Kelly",41.57],
+[2024,3,"Melynn Henry",152.42],[2024,3,"Terri Irlbeck",186],[2024,3,"Shea Blosser",29.56],[2024,3,"Jackie Odom",406.47],[2024,3,"Cassie Kulbeth",12.93],[2024,3,"Sarah Bevers",33.26],[2024,3,"Kellie Kelly",626.33],[2024,3,"Ivy Zepeda",41.57],[2024,3,"Billy Breedlove",37.88],[2024,3,"Niki McAdams",74.01],[2024,3,"Tara Hobgood",41.57],[2024,3,"Jessica Gray",41.9],[2024,3,"Terri Irlbeck",78],[2024,3,"Terri Irlbeck",13],[2024,3,"Andi Pickering",18.48],[2024,3,"Jessie Dandrea",79.45],[2024,3,"Jackie Odom",42.49],[2024,3,"Lauren Uryasz",120.09],[2024,3,"Amy Catlin",41.57],[2024,3,"Ana Likman",76.67],[2024,3,"Maggie Morris",83.14],[2024,3,"Amy Key",28.64],[2024,3,"Billy Breedlove",11.55],[2024,3,"Jordanna Stephens",5.07],[2024,3,"Terri Irlbeck",86],[2024,3,"Terri Irlbeck",103],[2024,3,"Stacey Cox",69.28],[2024,3,"Lindsey Rusteberg",166.28],[2024,3,"Madison Botsford",64.67],[2024,3,"Kinsey Phelps",38.8],[2024,3,"Sheridan Richburg",23.09],[2024,3,"Brittany Furgeson",39.72],
+[2024,4,"Val Kuitu",24.94],[2024,4,"Delaney Piercy",49.42],[2024,4,"Natalie Butler",25.87],[2024,4,"Emily Zwiacher",32.33],[2024,4,"Terri Irlbeck",75],[2024,4,"Courtney Crane",146.88],[2024,4,"Kim Raemdonck",228.18],[2024,4,"Josi Villanueva",41.57],[2024,4,"Debbie Couch",30.48],[2024,4,"Gwendolyn Adams",97],[2024,4,"Molly Daniels",90.53],[2024,4,"Victoria Smaldone",13.39],[2024,4,"Stacy Webb",73.9],[2024,4,"Anne McCarty",16.63],[2024,4,"Stacy McGinnis",66.51],[2024,4,"Emily Zwiacher",99.77],[2024,4,"Courtney Crane",146.88],[2024,4,"Kassidy Johnston",277.14],[2024,4,"Megan Garcia",107.16],[2024,4,"Cassie Kulbeth",40.18],[2024,4,"Laura Seybert",101.62],[2024,4,"Molly Daniels",99.77],[2024,4,"Courtney Lankford",186.61],[2024,4,"Terri Irlbeck",25],[2024,4,"Terri Irlbeck",54],[2024,4,"Terri Irlbeck",130],[2024,4,"Katie DeGraaf",52.19],[2024,4,"Jessica Mannas",24.02],[2024,4,"Kim Raemdonck",126.56],[2024,4,"Kyra Washington",27.71],[2024,4,"Justin Guerrant",43.42],[2024,4,"Terri Irlbeck",78],
+[2024,5,"McCall Lewis",48.96],[2024,5,"Amalia Bradley",37.41],[2024,5,"Scott Weatherford",83.14],[2024,5,"Jane McIntyre",69.28],[2024,5,"Sarah Brewer",116.4],[2024,5,"Justin Guerrant",43.42],[2024,5,"Courtney Hohenberger",168.13],[2024,5,"Evin Fahey",3.7],[2024,5,"Melissa Jackson",1.85],[2024,5,"Terri Irlbeck",243],[2024,5,"Emily Ratcliff",144.11],[2024,5,"Robin Perrin",199.54],[2024,5,"Mark Akeroyd",67.44],[2024,5,"Kassidy Johnston",13.86],[2024,5,"Maggie Morris",138.11],[2024,5,"Terri Irlbeck",184],[2024,5,"Laura Seybert",142.02],[2024,5,"Emily Ratcliff",48.04],[2024,5,"Chandler Patterson",12.01],[2024,5,"John Weatherbee",360.28],[2024,5,"Natalie Carmona",24.02],[2024,5,"Krysta Cecil",25.4],[2024,5,"Jessica Blume",24.94],[2024,5,"Melynn Henry",11.09],[2024,5,"Jaclyn Teinert",30.48],[2024,5,"Kim Raemdonck",189.38],[2024,5,"Bea Raemdonck",39.72],[2024,5,"Treena Aston",80.37],[2024,5,"Laura Seybert",48.04],[2024,5,"Terri Irlbeck",98],[2024,5,"Cassie Kulbeth",55.43],[2024,5,"Megan Garcia",95.15],[2024,5,"Terri Irlbeck",79],
+[2024,6,"Delaney Piercy",157.04],[2024,6,"Susan Cowden",67.9],[2024,6,"Meagan Nippert",13.86],[2024,6,"Lori Mullins",27.71],[2024,6,"Brittany Aston",26.79],[2024,6,"Justin Guerrant",14.78],[2024,6,"Jenna Heflin",55.43],[2024,6,"Jana Hoffman",36.03],[2024,6,"Breanne Kittley",32.33],[2024,6,"Avery Aston",41.57],[2024,6,"Mariana Hatch",41.57],[2024,6,"Jenny Reeger",36.03],[2024,6,"Cassie Kulbeth",13.86],[2024,6,"Cassie Kulbeth",9.24],[2024,6,"Brooke Zavala",98.85],[2024,6,"John Ross Norton",83.14],[2024,6,"Jenifer Sumrall",74.83],[2024,6,"Terri Irlbeck",259],[2024,6,"Terri Irlbeck",154],[2024,6,"Charles Childre",23.09],[2024,6,"Ivy Zepeda",69.28],[2024,6,"Judd Messer",51.27],[2024,6,"Lauren Uryasz",4.62],[2024,6,"Victoria Smaldone",80.37],[2024,6,"Sarah Bevers",303.93],[2024,6,"Caroline Smalley",32.33],[2024,6,"Delaney Piercy",145.03],[2024,6,"Julia Sotelo",84.99],[2024,6,"Gabby Marchbanks",76.67],
+[2024,7,"Terri Irlbeck",267],[2024,7,"Erin Hornaday",51.73],[2024,7,"Betty Guerrant",13.86],[2024,7,"Debbie Couch",41.57],[2024,7,"Jaclyn Teinert",12.93],[2024,7,"Kelsey Otts",12.01],[2024,7,"Kinsey Phelps",48.04],[2024,7,"Karen Neinast",36.03],[2024,7,"Myndee Bartee",243.88],[2024,7,"Delaney Piercy",238.06],[2024,7,"Terri Irlbeck",253],[2024,7,"Shannon Emerson",132.1],[2024,7,"Brooke Zavala",88.22],[2024,7,"Laura Seybert",52.66],[2024,7,"Lindsay Rumold",24.02],[2024,7,"Emily Liner",24.94],[2024,7,"Emily Liner",9.24],[2024,7,"Brittany Vaughn",99.77],[2024,7,"Joli Martin",13.86],[2024,7,"Val Kuitu",35.1],[2024,7,"Jordanna Stephens",36.03],[2024,7,"Dieter Raemdonck",31.41],[2024,7,"Brent Shankle",26.79],[2024,7,"Ashley Pach",23.09],[2024,7,"Emily Zwiacher",39.01],[2024,7,"Amanda Owens",78.02],[2024,7,"Ivy Zepeda",39.01],[2024,7,"Debbie Couch",46],[2024,7,"Breanne Kittley",78.02],[2024,7,"Jamie Wells",76.67],[2024,7,"Sarah Bevers",78.02],[2024,7,"Laney Furgeson",39.01],[2024,7,"Julie Hilliard",23.09],[2024,7,"Emily Pool",39.01],[2024,7,"Krysta Cecil",39.01],[2024,7,"Courtney Lankford",98.85],[2024,7,"Sarah Simmons",76.02],
+[2024,8,"Stacy McGinnis",44.99],[2024,8,"Milena Smith",176.44],[2024,8,"Ryan Todd",124.71],[2024,8,"Delaney Piercy",88.45],[2024,8,"Brooke Zavala",88.45],[2024,8,"Justin Guerrant",13.86],[2024,8,"Terri Irlbeck",291],[2024,8,"Laurie Ross",78.02],[2024,8,"Natalie Carmona",12.01],[2024,8,"Kristina Cobb",-4.62],
+[2024,9,"Sheridan Richburg",49.88],[2024,9,"Breanne Kittley",60.05],[2024,9,"Terri Irlbeck",419],[2024,9,"Emily Kittley",178.29],[2024,9,"Ali Hamilton",45.02],[2024,9,"Sarah Bevers",12.93],[2024,9,"Sarah Bevers",11.55],[2024,9,"Brittany Ogden",78.02],[2024,9,"Debbie McGuire",171.82],[2024,9,"Delaney Piercy",51.73],[2024,9,"Terri Irlbeck",283],[2024,9,"Laney Furgeson",39.01],[2024,9,"Stephanie Dunnam Houston",127.48],[2024,9,"Delaney Piercy",140.18],[2024,9,"Myndee Bartee",39.01],[2024,9,"Brian Hobratschk",78.02],[2024,9,"Kinsey Phelps",78.02],[2024,9,"Magan Brown",36.95],[2024,9,"Marie Martell",23.09],[2024,9,"Matt and Jessica Pringle",36.95],[2024,9,"Meagan Williams",23.09],[2024,9,"Toni Morales",23.09],[2024,9,"Brittany Aston",23.09],[2024,9,"Kristina Cobb",-4.62],[2024,9,"Kristina Cobb",-4.62],[2024,9,"Kristina Cobb",-4.62],[2024,9,"Kristina Cobb",-4.62],[2024,9,"Becca Sanchez",18.48],[2024,9,"Anne McAlpine",60.05],[2024,9,"Justin Guerrant",18.48],[2024,9,"Myndee Bartee",37.04],[2024,9,"Kendal Weatherbee",39.01],
+[2024,10,"Shannon Wickson",70.21],[2024,10,"Sarah Simmons",37.01],[2024,10,"Kelsey Miller",37.04],[2024,10,"Val Kuitu",74.09],[2024,10,"Emily Zwiacher",74],[2024,10,"Alli Pace",39.01],[2024,10,"Hannah Bostick",37.04],[2024,10,"Emily Young",37.04],[2024,10,"Debbie Couch",37.04],[2024,10,"Terri Irlbeck",180],[2024,10,"Kassidy Johnston",37.04],[2024,10,"Brent Shankle",74.09],[2024,10,"Whitney Dunn",37.04],[2024,10,"Brooke Zavala",13.86],[2024,10,"Emily Pool",37.04],[2024,10,"Debbie Couch",138.57],[2024,10,"Laura Seybert",91.45],[2024,10,"Sarah Bevers",22.17],[2024,10,"Courtney Gray",42.03],[2024,10,"Brian Irlbeck",52],[2024,10,"Brenna Bibb",43.88],[2024,10,"Myndee Bartee",49.88],[2024,10,"Terri Irlbeck",243],[2024,10,"Debbie Couch",92.38],[2024,10,"Jordanna Stephens",69.28],
+[2024,11,"Mackenzie Kirkpatrick",12.01],[2024,11,"Natalie Butler",12.47],[2024,11,"Terri Irlbeck",310],[2024,11,"Kim Raemdonck",165.36],[2024,11,"Laura Seybert",138.57],[2024,11,"Madison Botsford",258.66],[2024,11,"Terri Irlbeck",165],[2024,11,"Taylor Hudman",49.29],[2024,11,"Robin Perrin",24.94],[2024,11,"Lauren Uryasz",38.06],[2024,11,"Taylor Lacy",12.01],[2024,11,"Natalie Butler",49.88],[2024,11,"Emily Bateman",245.73],[2024,11,"Lisa Bartee",138.57],[2024,11,"Katie Graves",76.67],[2024,11,"Miles Seybert",24.02],[2024,11,"Terri Irlbeck",80],[2024,11,"Victoria Smaldone",120.09],
+[2024,12,"Debbie McGuire",360.28],[2024,12,"Donna Lowry",25.87],[2024,12,"Robin Hamilton",110.85],[2024,12,"Amy Alexander",40.65],[2024,12,"Treena Aston",13.86],[2024,12,"Justin Guerrant",27.71],[2024,12,"Delaney Piercy",25.4],[2024,12,"Debbie McGuire",14.97],[2024,12,"Gwendolyn Adams",13.45],[2024,12,"Holly Lortie Pankratz",12.93],[2024,12,"Cassie Kulbeth",37.88],[2024,12,"Karen Neinast",12.01],[2024,12,"Jackie Odom",12.93],[2024,12,"Hannah Bostick",12.93],[2024,12,"Terri Irlbeck",809],
+// 2025
+[2025,1,"Stacey Cox",181.99],[2025,1,"Cristina Teixeira",24.94],[2025,1,"Stacy Webb",59.12],[2025,1,"Terri Irlbeck",520],[2025,1,"Kinsey Phelps",13.86],[2025,1,"Jaclyn Teinert",40.65],[2025,1,"Laura Seybert",87.76],[2025,1,"Terri Irlbeck",127],[2025,1,"Ashley Brown",35.1],[2025,1,"Ilene Hobgood",35.1],[2025,1,"Ashley Brown",35.1],[2025,1,"Jesse Rivera",102.17],[2025,1,"Allison Rubio",69.28],[2025,1,"Adriana Rangel",35.1],[2025,1,"Caitlin Martinez",35.1],[2025,1,"Alexis Parker",70.21],[2025,1,"Kendra Donaho",35.1],[2025,1,"Tara Hobgood",69.28],
+[2025,2,"Matthew Torres",35.1],[2025,2,"Alina Sims",104.39],[2025,2,"Debbie Canchola",70.21],[2025,2,"Allison Rubio",105.31],[2025,2,"Bryanna Garcia",35.1],[2025,2,"Shelby Jenkins",70.21],[2025,2,"Chelsi Henderson",386.14],[2025,2,"Emily Liner",24.94],[2025,2,"Linda Gaither",13.39],[2025,2,"Mary Claire Hohenberger",25.87],[2025,2,"Stormie Taggart",51.27],[2025,2,"Jana Hoffman",63.28],[2025,2,"Amy Breedlove",12.47],[2025,2,"Maggie Morris",110.85],[2025,2,"Terri Irlbeck",300],[2025,2,"Cassie Kulbeth",127.02],[2025,2,"Mystica Marquez",34.18],[2025,2,"Debbie Couch",124.71],[2025,2,"Mackenzie Payton",55.43],[2025,2,"Katie Graves",69.28],[2025,2,"Angela Dixon",163.33],
+[2025,3,"Tayler Griffin",38.8],[2025,3,"Whitney Dunn",288.22],[2025,3,"Alli Pace",60.05],[2025,3,"Emily Ratcliff",120.09],[2025,3,"Lauren Uryasz",70.21],[2025,3,"Stephanie Irvin",70.21],[2025,3,"Mandi McDonald",77.6],[2025,3,"Laura Seybert",41.57],[2025,3,"Kailee Akin",38.8],[2025,3,"Amanda Dixon",57.83],[2025,3,"Patti Bostick",38.8],[2025,3,"Casey Lampert",38.8],[2025,3,"Brooke Dora",77.6],[2025,3,"Emily White",77.6],[2025,3,"Katie Davis",43.42],[2025,3,"Kristi Willis",165.36],[2025,3,"Victoria Thurmond",36.95],[2025,3,"Delaney Piercy",300.69],[2025,3,"Terri Irlbeck",411],[2025,3,"Jackie Odom",16.63],[2025,3,"Summer Barrett",11.55],
+[2025,4,"Ali Hamilton",12.01],[2025,4,"Holly Lortie Pankratz",12.01],[2025,4,"Katie Graves",69.28],[2025,4,"Erin Hornaday",149.65],[2025,4,"Miquela Smith",49.88],[2025,4,"Brittany Aston",13.86],[2025,4,"Laura Sanders",180.14],[2025,4,"Jessica Blume",12.47],[2025,4,"Katie DeGraaf",105.31],[2025,4,"Stacy McGinnis",35.1],[2025,4,"Brenna Bibb",36.95],[2025,4,"Kelly Stock",53.58],[2025,4,"Debbie Couch",92.38],[2025,4,"Katie Graves",157.04],[2025,4,"Angela Robertson",12.47],[2025,4,"Natalie Carmona",38.8],[2025,4,"Terri Irlbeck",575],[2025,4,"Laura Sanders",13.86],
+[2025,5,"Stormie Taggart",49.88],[2025,5,"Kendal Weatherbee",39.72],[2025,5,"Krysta Cecil",40.18],[2025,5,"Sandy Thomas",77.97],[2025,5,"Scott Weatherford",127.48],[2025,5,"Kristi Willis",80.37],[2025,5,"Sarah Bevers",97.92],[2025,5,"Brittany Jones",80.37],[2025,5,"Kati Adams",200.92],[2025,5,"Delaney Piercy",120.55],[2025,5,"Terri Irlbeck",954],[2025,5,"Myndee Bartee",50.81],[2025,5,"Magan Brown",40.18],[2025,5,"Jana Hoffman",40.18],
+[2025,6,"Leah Sides",41.57],[2025,6,"Anne McAlpine",101.62],[2025,6,"Rachael Butts",38.8],[2025,6,"Brooke Zavala",25.87],[2025,6,"Robin Hamilton",16.63],[2025,6,"Laura Seybert",174.6],[2025,6,"Delaney Piercy",291.92],[2025,6,"Bailey Fergeson",32.33],[2025,6,"Terri Irlbeck",856],[2025,6,"Jessica Blume",24.94],[2025,6,"Stacey Cox",80.37],[2025,6,"Brooke Zavala",12.47],
+[2025,7,"Jane McIntyre",169.98],[2025,7,"Katie Graves",82.22],[2025,7,"Audra Smith",64.2],[2025,7,"Milena Smith",12.93],[2025,7,"Anne McCarty",13.86],[2025,7,"Brooke Zavala",12.47],[2025,7,"Jessica Coblentz",24.02],[2025,7,"Melynn Henry",60.05],[2025,7,"Kelsey Miller",121.02],[2025,7,"Jessica Gray",121.02],[2025,7,"Analisa Warren",115.47],[2025,7,"Terri Irlbeck",804],[2025,7,"Erin Hornaday",116.4],[2025,7,"Ali Hamilton",13.39],[2025,7,"Madison Botsford",41.57],[2025,7,"Cassie Kulbeth",80.37],[2025,7,"Kelsey Otts",121.02],
+[2025,8,"Lori Mullins",27.71],[2025,8,"Laura Sanders",29.56],[2025,8,"Stephanie Hunnicutt",61.89],[2025,8,"Delaney Piercy",121.02],[2025,8,"Laura Henderson",13.86],[2025,8,"Brittney Shipley",38.8],[2025,8,"Taylor Lacy",53.58],[2025,8,"Brittany Ogden",121.02],[2025,8,"Kim Raemdonck",326],[2025,8,"Ashley Pach",30.48],[2025,8,"Arrington Madison",97],[2025,8,"Brooke Zavala",51.73],[2025,8,"Terri Irlbeck",438],[2025,8,"Carol Barton",18.48],[2025,8,"Jessica Gray",36.03],[2025,8,"Stormie Taggart",13.86],[2025,8,"Shannon Mccutcheon",18.48],[2025,8,"Kristina Cobb",-13.86],[2025,8,"Shannon Mccutcheon",4.62],[2025,8,"Hannah Bostick",9.24],[2025,8,"Jordanna Stephens",12.93],[2025,8,"Saskia Bergstein",13.86],[2025,8,"Rachel Scranton",13.86],[2025,8,"Bonnie Hill",233.72],[2025,8,"Natalie Carmona",13.86],[2025,8,"Haley Bufkin",37.04],[2025,8,"Myndee Bartee",37.04],[2025,8,"Emily Ratcliff",120.09],[2025,8,"Amy Breedlove",27.71],[2025,8,"Jeff Griffin",37.04],[2025,8,"Natasha Ukani-McGallion",41.66],[2025,8,"Elizabeth Delano",37.04],[2025,8,"Haylee Gregory",13.86],[2025,8,"Krysta Cecil",13.86],[2025,8,"Kendra Cook",35.1],[2025,8,"Breanne Kittley",13.86],[2025,8,"Emily Liner",13.86],
+[2025,9,"Terri Irlbeck",356],[2025,9,"Katie Verett",70.21],[2025,9,"Julie Hilliard",35.1],[2025,9,"Brent Shankle",26.79],[2025,9,"Debbie McGuire",166.28],[2025,9,"Jessie Dandrea",50.9],[2025,9,"Carrie Semple",78.71],[2025,9,"Paige Zay",78.71],[2025,9,"Mandi McDonald",77.6],[2025,9,"Tina Guerra",41.66],[2025,9,"Terri Irlbeck",169],[2025,9,"Delaney Piercy",53.58],[2025,9,"Morgan Behrens",115.75],[2025,9,"Haley Bufkin",74.09],[2025,9,"Alexandra Gr",12.47],[2025,9,"Laura Seybert",40.18],[2025,9,"Chrissie Thompson",28.64],[2025,9,"Milena Smith",13.86],[2025,9,"Kendra Cook",37.04],[2025,9,"Tara Kennedy",226.88],[2025,9,"Amy Breedlove",74.09],[2025,9,"Kim Kirkpatrick",41.57],[2025,9,"Terri Irlbeck",233],[2025,9,"Stormie Taggart",38.8],[2025,9,"Laura Cesaro",78.71],[2025,9,"Kembra Howell",37.04],[2025,9,"Stephanie Hunnicutt",29.56],[2025,9,"Abigail Scioli",49.88],
+[2025,11,"Sarah Bevers",120.09],[2025,11,"Matt and Jessica Pringle",13.86],[2025,11,"Melynn Henry",91.45],
+[2025,12,"Kinsley Riddle",13.86],[2025,12,"Brenna Bibb",43.88],[2025,12,"Amee Carr",30.48],[2025,12,"Haley Bufkin",133.95],[2025,12,"Dana Reeger",62.36],[2025,12,"Jordanna Stephens",88.45],[2025,12,"Lizzy Maynard",25.87],[2025,12,"Natalie Carmona",87.76],[2025,12,"Debbie McGuire",166.28],[2025,12,"Kurt Rumold",21.25],[2025,12,"Terri Irlbeck",281],[2025,12,"Marie Cox",93.3],[2025,12,"Kendal Weatherbee",334.97],[2025,12,"Laura Seybert",321.02],[2025,12,"Laura Seybert",-9.24],[2025,12,"Laura Seybert",8.31],[2025,12,"Emily Zwiacher",41.57],[2025,12,"Jaclyn Teinert",74.09],[2025,12,"Alli Pace",64.67],[2025,12,"Haley Bufkin",58.2],[2025,12,"Terri Irlbeck",91],[2025,12,"Jeff Griffin",79.45],[2025,12,"Lupe Madrid",198.61],[2025,12,"Mary Claire Hohenberger",78.52],[2025,12,"Ivy Zepeda",64.67],[2025,12,"Emily Zwiacher",64.67],[2025,12,"Kristi Willis",64.67],[2025,12,"Marci Brosch",25.87],[2025,12,"Audra Holmes",69.28],[2025,12,"Morgan Behrens",32.33],[2025,12,"Stacey Cox",18.48],[2025,12,"Lizzy Maynard",39.72],[2025,12,"Courtney Nelson",13.86],[2025,12,"Terri Irlbeck",283],[2025,12,"Myndee Bartee",64.67],[2025,12,"Analisa Warren",64],[2025,12,"Jana Hoffman",53.58],[2025,12,"Kristi Hinojosa",25.87],[2025,12,"Bonnie Hill",64.67],[2025,12,"Melynn Henry",224.48],[2025,12,"Natalie Butler",49.88],[2025,12,"Jordanna Stephens",132.1],[2025,12,"Alley Neff",30.48],[2025,12,"Lucy Nichols",157.04],[2025,12,"Natalie Carmona",38.8],[2025,12,"Robin Perrin",13.86],[2025,12,"Delaney Piercy",32.33],[2025,12,"Kim Raemdonck",201.39],[2025,12,"Sarah Bevers",13.39],[2025,12,"Debbie Couch",90.53],[2025,12,"Cassie Kulbeth",26.79],[2025,12,"Lisa Bartee",230.95],[2025,12,"Krysta Cecil",14.32],[2025,12,"Jana Scheef",14.32],[2025,12,"Hannah Bostick",38.8],[2025,12,"Cassie Kulbeth",13.39],[2025,12,"Jessie Dandrea",72.06],[2025,12,"Jackie Odom",64.67]
+];
+
+// 2022 aggregated monthly data (individual txns not fully captured)
+const AGG_2022 = [
+{m:1,total:2070,top:[["Terri Irlbeck",145],["Kassidy Johnston",162],["Brittany Furgeson",122],["Christina Scoggins",127],["Lauren Rich",74]]},
+{m:2,total:2200,top:[["Sarah Bevers",191],["Lauren Cisneros",195],["Kim Raemdonck",171],["Terri Irlbeck",151],["Molly Daniels",131]]},
+{m:3,total:2400,top:[["Kendal Weatherbee",224],["Hannah Bostick",202],["Molly Daniels",176],["Terri Irlbeck",156],["Niki Sue",120]]},
+{m:4,total:2600,top:[["Morgan Springer",165],["Sarah Brewer",165],["McCall Chenot",166],["Cassie Kulbeth",160],["Jackie Odom",160]]},
+{m:5,total:3700,top:[["Carrie Semple",267],["Kim Raemdonck",260],["Frances Black",238],["Terri Irlbeck",204],["Emily Owen",198]]},
+{m:6,total:1100,top:[["Emily Owen",240],["Ivy Zepeda",151],["Lauren Burrell",127],["Terri Irlbeck",146],["Alli Pace",84]]},
+{m:7,total:765,top:[["Kinsey Phelps",110.85],["Terri Irlbeck",105],["Emily Owen",88.68],["Jaclyn Teinert",69.28],["Katie Davis",56]]},
+{m:8,total:2500,top:[["McCall Chenot",452.66],["Terri Irlbeck",330.45],["Delaney Piercy",182.91],["Brittany Todd",152.42],["Betsy Presley",137.64]]},
+{m:9,total:2000,top:[["Terri Irlbeck",578],["Sarah Bevers",156.12],["Sabrina Reiley",149.65],["Jessie Dandrea",113.9],["Kelsey Miller",87.76]]},
+{m:10,total:1600,top:[["Emily Owen",466.97],["Terri Irlbeck",452],["Kim Raemdonck",90],["Laura Seybert",88],["Stacey Cox",81.29]]},
+{m:11,total:3900,top:[["Emily Kittley",800.88],["Terri Irlbeck",740],["Natalie Carmona",406],["Roots Designing Co",336],["Lucy Nichols",250]]},
+{m:12,total:2300,top:[["Terri Irlbeck",556],["Debbie McGuire",234.64],["Natalie Carmona",207.85],["Emily Bateman",139.49],["Brittany Todd",142.26]]}
+];
+
+// ═══════════════════════════════════════════════════════════════
+// PROCESSING
+// ═══════════════════════════════════════════════════════════════
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const YEAR_COLORS = {2021:'#74b9ff',2022:'#a29bfe',2023:'#fdcb6e',2024:'#00b894',2025:'#e94560'};
+
+// Build transaction list from RAW
+const txns = RAW.map(r => ({year:r[0],month:r[1],customer:r[2],amount:r[3]}));
+
+// Add 2022 aggregated data as synthetic entries
+AGG_2022.forEach(a => {
+  a.top.forEach(([cust, amt]) => txns.push({year:2022, month:a.m, customer:cust, amount:amt}));
+});
+
+const years = [2021,2022,2023,2024,2025];
+
+// Monthly totals per year
+function monthlyTotals(yr) {
+  if (yr === 2022) return AGG_2022.map(a => a.total);
+  const mt = new Array(12).fill(0);
+  txns.filter(t => t.year === yr).forEach(t => mt[t.month-1] += t.amount);
+  return mt;
+}
+
+// Year total
+function yearTotal(yr) {
+  return monthlyTotals(yr).reduce((a,b) => a+b, 0);
+}
+
+// Customer totals
+function custTotals() {
+  const m = {};
+  txns.forEach(t => { m[t.customer] = (m[t.customer]||0) + t.amount; });
+  // Add remaining 2022 monthly amounts not covered by top customers
+  AGG_2022.forEach(a => {
+    const topSum = a.top.reduce((s,c) => s+c[1], 0);
+    // remaining spread is not attributed to specific customers
+  });
+  return Object.entries(m).sort((a,b) => b[1]-a[1]);
+}
+
+const allCustTotals = custTotals();
+const totalRev = years.reduce((s,y) => s + yearTotal(y), 0);
+const totalTxn = txns.length;
+const uniqueCust = new Set(txns.map(t => t.customer)).size;
+
+// Format currency
+const fmt = n => '$' + Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtK = n => n >= 1000 ? '$' + (n/1000).toFixed(1) + 'k' : fmt(n);
+
+// ═══════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('sec-'+tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// OVERVIEW
+// ═══════════════════════════════════════════════════════════════
+document.getElementById('kpi-rev').textContent = fmtK(totalRev);
+document.getElementById('kpi-txn').textContent = totalTxn.toLocaleString();
+document.getElementById('kpi-cust').textContent = uniqueCust;
+document.getElementById('kpi-avg').textContent = fmt(totalRev/totalTxn);
+
+// Yearly bar chart
+new Chart(document.getElementById('chartYearly'),{
+  type:'bar',
+  data:{labels:years.map(String),datasets:[{label:'Revenue',data:years.map(y=>yearTotal(y)),backgroundColor:years.map(y=>YEAR_COLORS[y]),borderRadius:6}]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.raw)}}},scales:{y:{ticks:{callback:v=>fmtK(v)},grid:{color:'rgba(255,255,255,.06)'}},x:{grid:{display:false}}},onClick:(e,el)=>{if(el.length){const yr=years[el[0].index];showDrillYear(yr);}}}
+});
+
+// Monthly all-years stacked
+const monthlyAllData = years.map(y => ({label:String(y),data:monthlyTotals(y),backgroundColor:YEAR_COLORS[y],borderRadius:4}));
+new Chart(document.getElementById('chartMonthlyAll'),{
+  type:'bar',
+  data:{labels:MONTHS,datasets:monthlyAllData},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#ccc'}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.raw)}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,ticks:{callback:v=>fmtK(v)},grid:{color:'rgba(255,255,255,.06)'}}}}
+});
+
+// ═══════════════════════════════════════════════════════════════
+// MONTHLY TRENDS
+// ═══════════════════════════════════════════════════════════════
+const trendsCtx = document.getElementById('chartTrends');
+const trendsChart = new Chart(trendsCtx,{
+  type:'line',
+  data:{labels:MONTHS,datasets:years.map(y=>({label:String(y),data:monthlyTotals(y),borderColor:YEAR_COLORS[y],backgroundColor:YEAR_COLORS[y]+'33',fill:false,tension:.3,pointRadius:4,pointHoverRadius:7}))},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.raw)}}},scales:{y:{ticks:{callback:v=>fmtK(v)},grid:{color:'rgba(255,255,255,.06)'}},x:{grid:{display:false}}},interaction:{mode:'index',intersect:false}}
+});
+
+const togglesEl = document.getElementById('yearToggles');
+years.forEach((y,i) => {
+  const lbl = document.createElement('label');
+  const cb = document.createElement('input');
+  cb.type='checkbox'; cb.checked=true;
+  cb.addEventListener('change', () => { trendsChart.data.datasets[i].hidden = !cb.checked; trendsChart.update(); });
+  lbl.appendChild(cb);
+  lbl.append(' '+y);
+  lbl.style.color = YEAR_COLORS[y];
+  togglesEl.appendChild(lbl);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// TOP CUSTOMERS
+// ═══════════════════════════════════════════════════════════════
+const top25 = allCustTotals.slice(0,25);
+new Chart(document.getElementById('chartTopCust'),{
+  type:'bar',
+  data:{labels:top25.map(c=>c[0]),datasets:[{label:'Total Spent',data:top25.map(c=>c[1]),backgroundColor:'#e94560',borderRadius:4}]},
+  options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.raw)}}},scales:{x:{ticks:{callback:v=>fmtK(v)},grid:{color:'rgba(255,255,255,.06)'}},y:{grid:{display:false}}},onClick:(e,el)=>{if(el.length){showCustomer(top25[el[0].index][0]);}}}
+});
+
+// ═══════════════════════════════════════════════════════════════
+// CUSTOMER DRILL-DOWN
+// ═══════════════════════════════════════════════════════════════
+let custLineChart, custBarChart;
+const searchBox = document.getElementById('custSearch');
+const resultsDiv = document.getElementById('custResults');
+
+searchBox.addEventListener('input', () => {
+  const q = searchBox.value.trim().toLowerCase();
+  if (q.length < 2) { resultsDiv.classList.add('hidden'); return; }
+  const matches = allCustTotals.filter(c => c[0].toLowerCase().includes(q)).slice(0,10);
+  if (!matches.length) { resultsDiv.classList.add('hidden'); return; }
+  resultsDiv.innerHTML = matches.map(c => `<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05);font-size:.9rem" onmouseover="this.style.background='rgba(255,255,255,.05)'" onmouseout="this.style.background=''" onclick="showCustomer('${c[0].replace(/'/g,"\\'")}')">${c[0]} <span style="color:var(--accent);float:right">${fmt(c[1])}</span></div>`).join('');
+  resultsDiv.classList.remove('hidden');
+  resultsDiv.style.cssText = 'background:var(--card);border:1px solid var(--card-border);border-radius:8px;max-width:400px;margin-bottom:12px';
+});
+
+function showCustomer(name) {
+  resultsDiv.classList.add('hidden');
+  searchBox.value = name;
+  const detail = document.getElementById('custDetail');
+  detail.classList.remove('hidden');
+
+  const ct = txns.filter(t => t.customer === name);
+  const total = ct.reduce((s,t) => s+t.amount, 0);
+  const yrs = [...new Set(ct.map(t=>t.year))].sort();
+
+  document.getElementById('custName').textContent = name;
+  document.getElementById('custStats').textContent = `${ct.length} transactions | ${fmt(total)} total | ${yrs[0]}–${yrs[yrs.length-1]}`;
+
+  // Monthly line over time
+  const timeLabels = [];
+  const timeData = [];
+  years.forEach(y => {
+    MONTHS.forEach((m,mi) => {
+      const sum = ct.filter(t => t.year===y && t.month===mi+1).reduce((s,t)=>s+t.amount,0);
+      if (sum !== 0 || (y >= yrs[0] && y <= yrs[yrs.length-1])) {
+        timeLabels.push(m+' '+String(y).slice(2));
+        timeData.push(sum);
+      }
+    });
+  });
+
+  if (custLineChart) custLineChart.destroy();
+  custLineChart = new Chart(document.getElementById('chartCustLine'),{
+    type:'line',
+    data:{labels:timeLabels,datasets:[{label:name,data:timeData,borderColor:'#e94560',backgroundColor:'#e9456033',fill:true,tension:.3,pointRadius:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.raw)}}},scales:{y:{ticks:{callback:v=>fmtK(v)},grid:{color:'rgba(255,255,255,.06)'}},x:{grid:{display:false},ticks:{maxTicksLimit:12}}}}
+  });
+
+  // Yearly bar
+  const yrTotals = years.map(y => ct.filter(t=>t.year===y).reduce((s,t)=>s+t.amount,0));
+  if (custBarChart) custBarChart.destroy();
+  custBarChart = new Chart(document.getElementById('chartCustBar'),{
+    type:'bar',
+    data:{labels:years.map(String),datasets:[{label:'Annual Total',data:yrTotals,backgroundColor:years.map(y=>YEAR_COLORS[y]),borderRadius:6}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.raw)}}},scales:{y:{ticks:{callback:v=>fmtK(v)},grid:{color:'rgba(255,255,255,.06)'}},x:{grid:{display:false}}}}
+  });
+
+  // Transaction table
+  const tbody = document.getElementById('custTxnBody');
+  tbody.innerHTML = ct.sort((a,b)=> a.year===b.year ? a.month-b.month : a.year-b.year)
+    .map(t => `<tr><td>${t.year}</td><td>${MONTHS[t.month-1]}</td><td class="${t.amount<0?'neg':''}">${t.amount<0?'-':''}${fmt(t.amount)}</td></tr>`).join('');
+}
+
+function showDrillYear(yr) {
+  // Switch to drill-down tab showing top customer for that year
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelector('[data-tab="customers"]').classList.add('active');
+  document.getElementById('sec-customers').classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// YEAR COMPARISON
+// ═══════════════════════════════════════════════════════════════
+const cardsEl = document.getElementById('yearCards');
+years.forEach(y => {
+  const yt = yearTotal(y);
+  const mt = monthlyTotals(y);
+  const best = MONTHS[mt.indexOf(Math.max(...mt))];
+  const yCusts = {};
+  txns.filter(t=>t.year===y).forEach(t=>{ yCusts[t.customer]=(yCusts[t.customer]||0)+t.amount; });
+  const topC = Object.entries(yCusts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const txnCount = y===2022 ? '~510' : txns.filter(t=>t.year===y).length;
+
+  const card = document.createElement('div');
+  card.className = 'year-card';
+  card.innerHTML = `
+    <h3>${y}</h3>
+    <div class="stat"><span>Revenue</span><span class="v">${fmt(yt)}</span></div>
+    <div class="stat"><span>Transactions</span><span class="v">${txnCount}</span></div>
+    <div class="stat"><span>Best Month</span><span class="v">${best}</span></div>
+    <div class="stat"><span>Avg/Month</span><span class="v">${fmt(yt/12)}</span></div>
+    <div class="top-list"><strong style="font-size:.8rem;color:var(--text-dim)">Top 5 Customers</strong>
+    ${topC.map(c=>`<div class="top-item"><span class="n" style="cursor:pointer" onclick="showCustomerNav('${c[0].replace(/'/g,"\\'")}')">${c[0]}</span><span class="v">${fmt(c[1])}</span></div>`).join('')}
+    </div>`;
+  cardsEl.appendChild(card);
+});
+
+function showCustomerNav(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelector('[data-tab="drilldown"]').classList.add('active');
+  document.getElementById('sec-drilldown').classList.add('active');
+  showCustomer(name);
+}
+</script>
+</body>
+</html>
